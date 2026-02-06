@@ -244,19 +244,34 @@ class BaselineTAMPPlanner:
         """
         self.motion_planning_calls += 1
         
-        # Compute target configuration via IK
-        target_orn = np.array([1, 0, 0, 0])  # Gripper pointing down
-        target_config = self.env.robot.inverse_kinematics(
-            action.target_position,
-            target_orn
-        )
+        # Try multiple grasp orientations (yaw)
+        target_orb_base = p.getQuaternionFromEuler([np.pi, 0, 0])
+        possible_yaws = [0, np.pi/2, np.pi, -np.pi/2]
+        
+        target_config = None
+        for yaw in possible_yaws:
+            # Rotate gripper around Z axis
+            orn = p.getQuaternionFromEuler([np.pi, 0, yaw])
+            config = self.env.robot.inverse_kinematics(
+                action.target_position,
+                np.array(orn)
+            )
+            if config is not None:
+                target_config = config
+                break
         
         if target_config is None:
+            print("  IK Failed")
             return None  # IK failed
             
         # Plan motion
         current_config = self.env.robot.get_joint_positions()
         trajectory = self.motion_planner.plan(current_config, target_config)
+        
+        if trajectory is None:
+            print("  RRT Failed")
+        else:
+            print("  RRT Success")
         
         return trajectory
     

@@ -48,7 +48,7 @@ class TabletopEnv:
         self.camera_width = camera_width
         self.camera_height = camera_height
         self.num_objects_range = num_objects
-        self.object_types = object_types or ["cube", "cylinder"]
+        self.object_types = object_types or ["cube", "cylinder", "lego", "duck", "teddy"]
         
         if seed is not None:
             random.seed(seed)
@@ -216,42 +216,33 @@ class TabletopEnv:
                 continue  # Skip if can't find valid position
                 
             # Create collision and visual shapes
+            # Create body based on type
             if obj_type == "cube":
-                collision_id = p.createCollisionShape(
-                    p.GEOM_BOX,
-                    halfExtents=[size/2, size/2, size/2],
-                    physicsClientId=self.physics_client
-                )
-                visual_id = p.createVisualShape(
-                    p.GEOM_BOX,
-                    halfExtents=[size/2, size/2, size/2],
-                    rgbaColor=colors[i % len(colors)],
-                    physicsClientId=self.physics_client
-                )
-            else:  # cylinder
-                collision_id = p.createCollisionShape(
-                    p.GEOM_CYLINDER,
-                    radius=size/2,
-                    height=size,
-                    physicsClientId=self.physics_client
-                )
-                visual_id = p.createVisualShape(
-                    p.GEOM_CYLINDER,
-                    radius=size/2,
-                    length=size,
-                    rgbaColor=colors[i % len(colors)],
-                    physicsClientId=self.physics_client
-                )
-                
-            # Create body
-            obj_id = p.createMultiBody(
-                baseMass=0.1,
-                baseCollisionShapeIndex=collision_id,
-                baseVisualShapeIndex=visual_id,
-                basePosition=[x, y, z],
-                physicsClientId=self.physics_client
-            )
+                collision_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[size/2]*3, physicsClientId=self.physics_client)
+                visual_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[size/2]*3, rgbaColor=colors[i%len(colors)], physicsClientId=self.physics_client)
+                obj_id = p.createMultiBody(baseMass=0.1, baseCollisionShapeIndex=collision_id, baseVisualShapeIndex=visual_id, basePosition=[x, y, z], physicsClientId=self.physics_client)
+            elif obj_type == "cylinder":
+                collision_id = p.createCollisionShape(p.GEOM_CYLINDER, radius=size/2, height=size, physicsClientId=self.physics_client)
+                visual_id = p.createVisualShape(p.GEOM_CYLINDER, radius=size/2, length=size, rgbaColor=colors[i%len(colors)], physicsClientId=self.physics_client)
+                obj_id = p.createMultiBody(baseMass=0.1, baseCollisionShapeIndex=collision_id, baseVisualShapeIndex=visual_id, basePosition=[x, y, z], physicsClientId=self.physics_client)
+            elif obj_type == "lego":
+                obj_id = p.loadURDF("lego/lego.urdf", basePosition=[x, y, z], globalScaling=0.5, physicsClientId=self.physics_client)
+            elif obj_type == "duck":
+                obj_id = p.loadURDF("duck_vhacd.urdf", basePosition=[x, y, z], globalScaling=0.8, physicsClientId=self.physics_client)
+            elif obj_type == "teddy":
+                obj_id = p.loadURDF("teddy_vhacd.urdf", basePosition=[x, y, z], globalScaling=0.5, physicsClientId=self.physics_client)
+            else: # Fallback cube
+                collision_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[size/2]*3, physicsClientId=self.physics_client)
+                visual_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[size/2]*3, rgbaColor=colors[i%len(colors)], physicsClientId=self.physics_client)
+                obj_id = p.createMultiBody(baseMass=0.1, baseCollisionShapeIndex=collision_id, baseVisualShapeIndex=visual_id, basePosition=[x, y, z], physicsClientId=self.physics_client)
             
+            # Skip createMultiBody for loaded URDFs since loadURDF does it
+            if obj_type in ["cube", "cylinder", "fallback"]:
+                 pass # Already created above
+            else: 
+                 # For URDFs, we might want to color them?
+                 p.changeVisualShape(obj_id, -1, rgbaColor=colors[i%len(colors)], physicsClientId=self.physics_client)
+
             self.object_ids.append(obj_id)
             self.object_info.append({
                 "id": obj_id,
@@ -260,6 +251,10 @@ class TabletopEnv:
                 "position": [x, y, z],
                 "color": colors[i % len(colors)]
             })
+            continue # Skip the loop's shared createMultiBody call
+
+                
+
             
     def get_observation(self) -> Dict[str, np.ndarray]:
         """

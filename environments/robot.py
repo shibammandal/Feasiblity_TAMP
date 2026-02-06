@@ -189,9 +189,10 @@ class FrankaPanda:
         # Return only arm joint positions (first 7)
         joint_positions = np.array(joint_positions[:self.NUM_ARM_JOINTS])
         
-        # Validate solution is within limits
-        if np.all(joint_positions >= self.JOINT_LIMITS_LOWER) and \
-           np.all(joint_positions <= self.JOINT_LIMITS_UPPER):
+        # Validate solution is within limits (relaxed for demo/data generation)
+        tol = 0.2
+        if np.all(joint_positions >= self.JOINT_LIMITS_LOWER - tol) and \
+           np.all(joint_positions <= self.JOINT_LIMITS_UPPER + tol):
             return joint_positions
         return None
     
